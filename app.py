@@ -1,59 +1,90 @@
 import gradio as gr
 import pandas as pd
+import io
 import time
 
-# 轉換處理函式範例
-def convert_data(source, file):
-    # 模擬轉換過程
+def convert_file(data_source, csv_file):
+    """
+    這裡是主要的轉換函式。
+    data_source: 下拉式選單的選擇 (schwab, firstrade, binance)
+    csv_file: 上傳的 CSV 檔案
+    """
+    # 若未上傳檔案，直接回傳空值
+    if csv_file is None:
+        return gr.update(value=None, visible=False), None, None
+
+    # 模擬「轉換動畫」或進度，例如：等待 2 秒
     time.sleep(2)
-    
-    # 載入 CSV 檔案
-    df = pd.read_csv(file.name)
-    
-    # 假設轉換是某種數據處理，這裡可以根據選擇的資料來源進行不同處理
-    if source == "schwab":
-        df["Converted"] = df["Amount"] * 1.1  # 假設轉換邏輯
-    elif source == "firstrade":
-        df["Converted"] = df["Amount"] * 1.2
-    elif source == "binance":
-        df["Converted"] = df["Amount"] * 1.3
-    
-    return df
 
-# Gradio UI
+    # 使用 pandas 讀取上傳的 CSV
+    df = pd.read_csv(csv_file.name)
+
+    # (示範) 在此處根據 data_source 進行對應的處理或轉換
+    # 這裡只是簡單示範新增一個欄位
+    df["data_source"] = data_source
+
+    # 將轉換後的 df 轉回 CSV 字串
+    csv_buffer = io.StringIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+
+    # 產生可供下載的檔案內容 (tuple 格式: (檔案內容, 檔名))
+    download_file = (csv_buffer.getvalue(), "converted.csv")
+
+    return gr.update(value=None, visible=False), df, download_file
+
+
 with gr.Blocks() as demo:
-    gr.Markdown("# 轉換工具")
-    
-    # 步驟 1: 資料來源選擇
-    source_dropdown = gr.Dropdown(choices=["schwab", "firstrade", "binance"], label="選擇資料來源")
-    
-    # 步驟 2: 上傳CSV檔案
-    file_upload = gr.File(file_types=[".csv"], label="上傳CSV檔")
-    
-    # 步驟 3: 轉換鈕
+    gr.Markdown("# CSV 轉換工具")
+
+    # 1. 下拉式選單選擇資料來源
+    data_source = gr.Dropdown(
+        label="選擇資料來源",
+        choices=["schwab", "firstrade", "binance"],
+        value="schwab",
+    )
+
+    # 2. 上傳 CSV 檔
+    csv_upload = gr.File(
+        label="上傳您的 CSV 檔",
+        file_types=[".csv"]
+    )
+
+    # 3. 轉換按鈕
     convert_button = gr.Button("開始轉換")
-    
-    # 步驟 4: 顯示轉換動畫
-    with gr.Row():
-        loading_animation = gr.Image("https://loading.io/spinners/rolling/lg.roll-gear-loader.gif", visible=False)
-    
-    # 步驟 5: 顯示轉換結果的Table
-    result_table = gr.DataFrame(label="轉換結果")
-    
-    # 步驟 6: 下載轉換後的CSV檔案
-    download_button = gr.File(label="下載轉換後的CSV檔案", visible=False)
 
-    # 轉換按鈕觸發的動作
-    def on_convert_button_click(source, file):
-        loading_animation.visible = True
-        # 轉換過程
-        converted_data = convert_data(source, file)
-        # 顯示結果
-        result_table.update(converted_data)
-        # 顯示下載按鈕
-        download_button.update(value=converted_data.to_csv(index=False), visible=True)
-        loading_animation.visible = False
+    # 4. 轉換動畫 / 進度顯示
+    #    這裡簡易使用一個 Markdown 來顯示「轉換中...」，在函式執行時顯示
+    with gr.Box(visible=False) as converting_box:
+        converting_text = gr.Markdown("### 轉換中，請稍候...")
 
-    convert_button.click(on_convert_button_click, inputs=[source_dropdown, file_upload], outputs=[result_table, download_button, loading_animation])
+    # 5. 用表格顯示轉換結果
+    result_table = gr.DataFrame(
+        label="轉換後的資料預覽",
+        headers=[],
+        datatype="auto"
+    )
+
+    # 6. 下載轉換後的 CSV 檔鈕 (gr.File 可以作為可下載連結)
+    download_file = gr.File(label="下載轉換後的 CSV", interactive=False)
+
+    # 綁定 convert_button 點擊事件：
+    # - 先顯示 converting_box
+    # - 執行 convert_file 函式
+    # - 結束後隱藏 converting_box
+    convert_button.click(
+        fn=None,
+        inputs=None,
+        outputs=converting_box,
+        _js="(x) => { return {visible:true}; }",  # 先讓動畫/提示出現
+        queue=False
+    )
+
+    convert_button.click(
+        fn=convert_file,
+        inputs=[data_source, csv_upload],
+        outputs=[converting_box, result_table, download_file],
+        queue=True
+    )
 
 demo.launch()
