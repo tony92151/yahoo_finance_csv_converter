@@ -1,24 +1,37 @@
 import argparse
+import logging
 
-accept_source_type = ["schwab", "firstrade"]
+import pandas as pd
 
-
-def main(source_type: str, input_csv: str, output_csv: str):
-    if source_type not in accept_source_type:
-        raise ValueError(
-            f"Source type {source_type} is not support. Current support {accept_source_type}"
-        )
-
-    # TODO:
-    # load source loader accourding source_type
-    # init source loader and convert
-    # verifide the output format
-    # save output to csv file
-
+from source_convertor import convertor_mapping
+from source_convertor.base_convertor import BaseSourceConvertor
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source-type", type=str, required=True)
-    parser.add_argument("--input-csv", type=str, required=True)
-    parser.add_argument("--output-csv", type=str, required=True)
+    parser.add_argument(
+        "--convertor-type", type=str, choices=convertor_mapping.keys(), required=True
+    )
+    parser.add_argument("--output", type=str, required=True)
+    args_, _ = parser.parse_known_args()
+
+    output_path = args_.output
+
+    # get loader class
+    convertor_class = convertor_mapping[args_.convertor_type]
+    logging.info(f"Using convertor: {convertor_class.loader_name}")
+
+    convertor_class.add_argument(parser)
     args = parser.parse_args()
+
+    # remove source_type and output from args
+    args_dict = vars(args)
+    args_dict.pop("convertor_type", None)
+    args_dict.pop("output", None)
+
+    # init convertor
+    convertor: BaseSourceConvertor = convertor_class(**args_dict)
+
+    df: pd.DataFrame = convertor.convert()
+
+    logging.info(f"Saving to {output_path}")
+    df.to_csv(output_path, index=False)
