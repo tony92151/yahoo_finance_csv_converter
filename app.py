@@ -86,3 +86,5 @@ with gr.Blocks() as demo:
         outputs=[converting_box, result_table, download_file],
         queue=True
     )
+
+demo.launch()
