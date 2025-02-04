@@ -1,7 +1,9 @@
-import gradio as gr
-import pandas as pd
 import io
 import time
+
+import gradio as gr
+import pandas as pd
+
 
 def convert_file(data_source, csv_file):
     """
@@ -45,10 +47,7 @@ with gr.Blocks() as demo:
     )
 
     # 2. 上傳 CSV 檔
-    csv_upload = gr.File(
-        label="上傳您的 CSV 檔",
-        file_types=[".csv"]
-    )
+    csv_upload = gr.File(label="上傳您的 CSV 檔", file_types=[".csv"])
 
     # 3. 轉換按鈕
     convert_button = gr.Button("開始轉換")
@@ -59,11 +58,7 @@ with gr.Blocks() as demo:
         converting_text = gr.Markdown("### 轉換中，請稍候...")
 
     # 5. 用表格顯示轉換結果
-    result_table = gr.DataFrame(
-        label="轉換後的資料預覽",
-        headers=[],
-        datatype="auto"
-    )
+    result_table = gr.DataFrame(label="轉換後的資料預覽", headers=[], datatype="auto")
 
     # 6. 下載轉換後的 CSV 檔鈕 (gr.File 可以作為可下載連結)
     download_file = gr.File(label="下載轉換後的 CSV", interactive=False)
@@ -77,14 +72,14 @@ with gr.Blocks() as demo:
         inputs=None,
         outputs=converting_box,
         _js="(x) => { return {visible:true}; }",  # 先讓動畫/提示出現
-        queue=False
+        queue=False,
     )
 
     convert_button.click(
         fn=convert_file,
         inputs=[data_source, csv_upload],
         outputs=[converting_box, result_table, download_file],
-        queue=True
+        queue=True,
     )
 
 demo.launch()

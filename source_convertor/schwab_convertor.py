@@ -2,7 +2,7 @@ import argparse
 
 import pandas as pd
 
-from .base_loader import BaseSourceLoader
+from .base_convertor import BaseSourceConvertor
 
 # 202501 record columns
 schwab_columns = [
@@ -33,19 +33,26 @@ column_mapping = {
 }
 
 
-class SchwabLoader(BaseSourceLoader):
+class SchwaConvertor(BaseSourceConvertor):
     loader_name = "schwab"
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        history_data: str,
+        positions_data: str,
+        fix_exceed_range: bool,
+        default_dummy_date: str,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
-        self.positions_data_path = kwargs.get("positions_data")
-        self.fix_exceed_range = kwargs.get("fix_exceed_range")
-        self.default_dummy_date = kwargs.get("default_dummy_date")
+        self.positions_data_path = positions_data
+        self.history_data_path = history_data
+        self.fix_exceed_range = fix_exceed_range
+        self.default_dummy_date = default_dummy_date
 
-        self.positions_data_df = pd.read_csv(self.positions_data_path)
+        self.positions_data_df: pd.DataFrame = pd.read_csv(self.positions_data_path)
+        self.history_data_df: pd.DataFrame = pd.read_csv(history_data)
         self.pre_check()
-        self.pre_process_history_data()
-        self.pre_process_positions_data()
 
     def pre_check(self):
         if not all(col in self.history_data_df.columns for col in schwab_columns):
@@ -145,6 +152,9 @@ class SchwabLoader(BaseSourceLoader):
         )
 
     def convert(self) -> pd.DataFrame:
+        self.pre_process_history_data()
+        self.pre_process_positions_data()
+
         symbol_to_process = self.positions_data_df["Symbol"].to_list()
         complete_dfs = [
             self._parse_history_and_check(symbol) for symbol in symbol_to_process
@@ -168,6 +178,7 @@ class SchwabLoader(BaseSourceLoader):
 
     @staticmethod
     def add_argument(parser: argparse.ArgumentParser):
+        parser.add_argument("--history-data", type=str, required=True)
         parser.add_argument(
             "--positions-data",
             type=str,
