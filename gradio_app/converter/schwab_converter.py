@@ -5,30 +5,30 @@ import tempfile
 import gradio as gr
 import pandas as pd
 
+from source_convertor.schwab_convertor import SchwaConvertor
+
 
 def process_file(file_history, file_position):
-    df_history = pd.read_csv(file_history.name)
-    df_position = pd.read_csv(file_position.name)
-
-    temp_history = tempfile.NamedTemporaryFile(
-        delete=False, mode="w", newline="", suffix=".csv"
-    )
-    temp_position = tempfile.NamedTemporaryFile(
-        delete=False, mode="w", newline="", suffix=".csv"
+    convertor = SchwaConvertor(
+        history_data=file_history.name,
+        positions_data=file_position.name,
+        fix_exceed_range=True,
     )
 
-    # TODO:
-    # Implement the logic to convert Schwab history and position file
+    converted_result = convertor.convert()
 
-    df_position.to_csv(temp_position, index=False)
+    temp_result = tempfile.NamedTemporaryFile(
+        delete=False, mode="w", newline="", suffix=".csv"
+    )
 
-    temp_history.close()
-    temp_position.close()
+    converted_result.to_csv(temp_result, index=False)
+
+    temp_result.close()
 
     output_position_file_name = os.path.basename(file_position.name).replace(
         ".csv", "_edit.csv"
     )
-    shutil.move(temp_position.name, output_position_file_name)
+    shutil.move(temp_result.name, output_position_file_name)
 
     return output_position_file_name
 

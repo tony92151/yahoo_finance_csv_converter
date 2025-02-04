@@ -6,6 +6,9 @@ import pandas as pd
 from source_convertor import convertor_mapping
 from source_convertor.base_convertor import BaseSourceConvertor
 
+# setup logging
+logging.basicConfig(level=logging.INFO)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(

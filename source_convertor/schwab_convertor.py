@@ -1,4 +1,5 @@
 import argparse
+import logging
 
 import pandas as pd
 
@@ -32,6 +33,8 @@ column_mapping = {
     "Fees & Comm": "Commission",
 }
 
+DEFAULT_DUMMY_DATE = "01/01/2020"
+
 
 class SchwaConvertor(BaseSourceConvertor):
     loader_name = "schwab"
@@ -41,14 +44,14 @@ class SchwaConvertor(BaseSourceConvertor):
         history_data: str,
         positions_data: str,
         fix_exceed_range: bool,
-        default_dummy_date: str,
+        default_dummy_date: str | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.positions_data_path = positions_data
         self.history_data_path = history_data
         self.fix_exceed_range = fix_exceed_range
-        self.default_dummy_date = default_dummy_date
+        self.default_dummy_date = default_dummy_date or DEFAULT_DUMMY_DATE
 
         self.positions_data_df: pd.DataFrame = pd.read_csv(self.positions_data_path)
         self.history_data_df: pd.DataFrame = pd.read_csv(history_data)
@@ -93,10 +96,10 @@ class SchwaConvertor(BaseSourceConvertor):
         df.loc[df["Action"] == "Sell", "Quantity"] = -abs(df["Quantity"])
 
         if df["Quantity"].sum() == target_quantity:
-            print(f"Symbol: {symbol} has the correct quantity. Skip fix.")
+            logging.info(f"Symbol: {symbol} has the correct quantity. Skip fix.")
             return df
 
-        print(f"Symbol: {symbol} has incorrect quantity. Fixing...")
+        logging.info(f"Symbol: {symbol} has incorrect quantity. Fixing...")
 
         # if Quantity not match probably due to the missing data because exceed time range
         if self.fix_exceed_range:
@@ -107,7 +110,7 @@ class SchwaConvertor(BaseSourceConvertor):
             add_price = abs(target_total_value - sum_value) / add_quantity
 
             if add_action == "Sell" and (target_quantity > df["Quantity"].sum()):
-                print(
+                logging.info(
                     f"Break Symbol {symbol} because the quantity is less than the target quantity. Replace all with dummy data."
                 )
                 new_row = {
@@ -194,6 +197,6 @@ class SchwaConvertor(BaseSourceConvertor):
         parser.add_argument(
             "--default-dummy-date",
             type=str,
-            default="01/01/2020",
+            default=DEFAULT_DUMMY_DATE,
             help="Default dummy date to add if --fix-exceed-range is enabled",
         )
