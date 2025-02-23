@@ -1,5 +1,4 @@
 import argparse
-from pathlib import Path
 
 import pandas as pd
 
@@ -15,6 +14,7 @@ class BaseSourceConvertor:
         history_data_path: str,
         fix_exceed_range: bool,
         default_dummy_date: str,
+        **kwargs,
     ):
         self.positions_data_path = positions_data_path
         self.history_data_path = history_data_path

@@ -26,8 +26,8 @@ def process_file(file_history, file_position):
     try:
         # Initialize and run the convertor
         convertor = SchwabConvertor(
-            history_data=file_history.name,
-            positions_data=file_position.name,
+            history_data_path=file_history.name,
+            positions_data_path=file_position.name,
             fix_exceed_range=True,
         )
         converted_result = convertor.convert()

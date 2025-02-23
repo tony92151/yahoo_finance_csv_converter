@@ -1,4 +1,3 @@
-import argparse
 import logging
 
 import pandas as pd
@@ -32,17 +31,18 @@ class SchwabConvertor(BaseSourceConvertor):
 
     def __init__(
         self,
-        history_data: str,
-        positions_data: str,
+        positions_data_path: str,
+        history_data_path: str,
         fix_exceed_range: bool,
         default_dummy_date: str | None = None,
         **kwargs,
     ):
         super().__init__(
-            history_data_path=history_data,
-            positions_data_path=positions_data,
+            positions_data_path=positions_data_path,
+            history_data_path=history_data_path,
             fix_exceed_range=fix_exceed_range,
             default_dummy_date=default_dummy_date,
+            **kwargs,
         )
 
         self.pre_check()
@@ -168,25 +168,3 @@ class SchwabConvertor(BaseSourceConvertor):
         ).dt.strftime("%Y%m%d")
 
         return total_complete_df
-
-    @staticmethod
-    def add_argument(parser: argparse.ArgumentParser):
-        parser.add_argument("--history-data", type=str, required=True)
-        parser.add_argument(
-            "--positions-data",
-            type=str,
-            required=True,
-            help="Path to the positions data file",
-        )
-        parser.add_argument(
-            "--fix-exceed-range",
-            action="store_true",
-            help="Fix the exceed time range data. Add dummy data at earliest date.",
-        )
-
-        parser.add_argument(
-            "--default-dummy-date",
-            type=str,
-            default=DEFAULT_DUMMY_DATE,
-            help="Default dummy date to add if --fix-exceed-range is enabled",
-        )
