@@ -6,7 +6,7 @@ import tempfile
 
 import gradio as gr
 
-from source_convertor.schwab_convertor import SchwaConvertor
+from source_convertor.schwab_convertor import SchwabConvertor
 
 
 def process_file(file_history, file_position):
@@ -25,7 +25,7 @@ def process_file(file_history, file_position):
 
     try:
         # Initialize and run the convertor
-        convertor = SchwaConvertor(
+        convertor = SchwabConvertor(
             history_data=file_history.name,
             positions_data=file_position.name,
             fix_exceed_range=True,

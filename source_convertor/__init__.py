@@ -1,3 +1,3 @@
-from .schwab_convertor import SchwaConvertor
+from .schwab_convertor import SchwabConvertor
 
-convertor_mapping = {SchwaConvertor.loader_name: SchwaConvertor}
+convertor_mapping = {SchwabConvertor.loader_name: SchwabConvertor}

@@ -4,6 +4,7 @@ import logging
 import pandas as pd
 
 from .base_convertor import BaseSourceConvertor
+from .utils import yf_columns
 
 # 202501 record columns
 schwab_columns = [
@@ -16,14 +17,6 @@ schwab_columns = [
     "Fees & Comm",
     "Amount",
 ]
-yf_columns = [
-    "Symbol",
-    "Trade Date",
-    "Quantity",
-    "Purchase Price",
-    "Commission",
-    "Comment",
-]
 
 
 column_mapping = {
@@ -33,10 +26,8 @@ column_mapping = {
     "Fees & Comm": "Commission",
 }
 
-DEFAULT_DUMMY_DATE = "01/01/2020"
 
-
-class SchwaConvertor(BaseSourceConvertor):
+class SchwabConvertor(BaseSourceConvertor):
     loader_name = "schwab"
 
     def __init__(
@@ -47,20 +38,19 @@ class SchwaConvertor(BaseSourceConvertor):
         default_dummy_date: str | None = None,
         **kwargs,
     ):
-        super().__init__(**kwargs)
-        self.positions_data_path = positions_data
-        self.history_data_path = history_data
-        self.fix_exceed_range = fix_exceed_range
-        self.default_dummy_date = default_dummy_date or DEFAULT_DUMMY_DATE
+        super().__init__(
+            history_data_path=history_data,
+            positions_data_path=positions_data,
+            fix_exceed_range=fix_exceed_range,
+            default_dummy_date=default_dummy_date,
+        )
 
-        self.positions_data_df: pd.DataFrame = pd.read_csv(self.positions_data_path)
-        self.history_data_df: pd.DataFrame = pd.read_csv(history_data)
         self.pre_check()
 
     def pre_check(self):
         if not all(col in self.history_data_df.columns for col in schwab_columns):
             raise ValueError(
-                f"Columns in {self.history_data} do not match Schwab columns. Please update the schema."
+                f"Columns in {self.history_data_path} do not match Schwab columns. Please update the schema."
             )
 
     def clean_column(self, df, column_name):
