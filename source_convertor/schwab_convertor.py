@@ -26,6 +26,19 @@ column_mapping = {
 }
 
 
+def find_position_header_index(
+    file_path, header_keywords=["Symbol", "Description", "Qty (Quantity)"]
+):
+    """
+    Finds the row index where the header starts.
+    """
+    with open(file_path, "r", encoding="utf-8") as f:
+        for i, line in enumerate(f):
+            if all(keyword in line for keyword in header_keywords):
+                return i  # Return the correct header index
+    return None  # Return None if not found
+
+
 class SchwabConvertor(BaseSourceConvertor):
     loader_name = "schwab"
 
@@ -68,9 +81,13 @@ class SchwabConvertor(BaseSourceConvertor):
         self.history_data_df = df
 
     def pre_process_positions_data(self):
-        df = self.positions_data_df
-        df.columns = df.iloc[2]
-        df = df.iloc[3:].reset_index(drop=True)
+        header_index = find_position_header_index(self.positions_data_path)
+        if header_index is None:
+            raise ValueError(f"Could not find header row in {self.positions_data_path}")
+
+        df = pd.read_csv(self.positions_data_path, skiprows=header_index)
+        df = df.dropna(how="all")
+
         df = df[df["Symbol"].str.isupper()]
         self.clean_column(df, "Price")
         self.clean_column(df, "Cost Basis")
