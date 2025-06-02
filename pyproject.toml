@@ -1,0 +1,9 @@
+[project]
+name = "yahoo-finance-csv-converter"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gradio>=5.32.0",
+]
