@@ -16,4 +16,4 @@ app = gr.TabbedInterface(
     title="Yahoo Finance source csv data converter",
 )
 
-app.launch()
+app.launch(share=True)
