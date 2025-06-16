@@ -1,4 +1,5 @@
 import logging
+import argparse
 
 import pandas as pd
 
@@ -41,6 +42,11 @@ def find_position_header_index(
 
 class SchwabConvertor(BaseSourceConvertor):
     loader_name = "schwab"
+
+    @staticmethod
+    def add_argument(parser: argparse.ArgumentParser):
+        """Add Schwab specific arguments to CLI parser."""
+        BaseSourceConvertor.add_argument(parser)
 
     def __init__(
         self,

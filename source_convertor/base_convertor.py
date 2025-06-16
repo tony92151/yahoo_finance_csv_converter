@@ -13,7 +13,7 @@ class BaseSourceConvertor:
         positions_data_path: str,
         history_data_path: str,
         fix_exceed_range: bool,
-        default_dummy_date: str,
+        default_dummy_date: str | None,
         **kwargs,
     ):
         self.positions_data_path = positions_data_path
@@ -29,4 +29,28 @@ class BaseSourceConvertor:
 
     @staticmethod
     def add_argument(parser: argparse.ArgumentParser):
-        pass
+        parser.add_argument(
+            "--positions-data",
+            dest="positions_data_path",
+            type=str,
+            required=True,
+            help="positions csv file",
+        )
+        parser.add_argument(
+            "--history-data",
+            dest="history_data_path",
+            type=str,
+            required=True,
+            help="history csv file",
+        )
+        parser.add_argument(
+            "--fix-exceed-range",
+            action="store_true",
+            help="try to fix quantity mismatch when history range is incomplete",
+        )
+        parser.add_argument(
+            "--default-dummy-date",
+            type=str,
+            default=DEFAULT_DUMMY_DATE,
+            help="date used when filling dummy transactions",
+        )
