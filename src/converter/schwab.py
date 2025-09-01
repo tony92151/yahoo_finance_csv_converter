@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
 from .base import BaseConverter
+from .config import DEFAULT_DUMMY_DATE
 from .utils import yf_columns
 
 # 2025-01 record columns definition for Schwab CSV format

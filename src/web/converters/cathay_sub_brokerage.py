@@ -41,7 +41,7 @@ def process_file(statement_of_account: Any, file_position: Any) -> Tuple[str, st
         temp_result.close()
 
         # Create a new filename for the converted file
-        output_position_file_name = os.path.basename(file_position.name).replace(
+        output_position_file_name = os.path.basename(statement_of_account.name).replace(
             ".csv", "_yahoo_finance.csv"
         )
         shutil.move(temp_result.name, output_position_file_name)

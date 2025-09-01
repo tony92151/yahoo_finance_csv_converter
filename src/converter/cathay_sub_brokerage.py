@@ -59,6 +59,8 @@ class CathaySubBrokerageConverter(BaseConverter):
 
         super().__init__(**kwargs)
 
+        self.statement_of_account_file_path = statement_of_account_file_path
+
         self.df = pd.read_csv(statement_of_account_file_path)
 
         self.pre_check()
@@ -66,7 +68,7 @@ class CathaySubBrokerageConverter(BaseConverter):
     def pre_check(self) -> None:
         if not all(col in self.df.columns for col in cathay_columns):
             raise ValueError(
-                f"Columns in {self.history_data_path} do not match columns. Please update the schema."
+                f"Columns in {self.statement_of_account_file_path} do not match columns. Please update the schema."
             )
 
     def convert(self) -> pd.DataFrame:
@@ -116,5 +118,6 @@ class CathaySubBrokerageConverter(BaseConverter):
                 "Comment",
             ]
         ]
+        logging.info(f"Convert {self.statement_of_account_file_path} done.")
 
         return self.df

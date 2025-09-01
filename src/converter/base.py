@@ -7,8 +7,6 @@ from typing import Optional
 
 import pandas as pd
 
-from .config import DEFAULT_DUMMY_DATE
-
 
 class BaseConverter:
     """
@@ -22,20 +20,12 @@ class BaseConverter:
 
     def __init__(
         self,
-        positions_data_path: str,
-        history_data_path: str,
-        fix_exceed_range: bool,
-        default_dummy_date: Optional[str] = None,
         **kwargs,
     ):
         """
         Initialize the base converter.
 
         Args:
-            positions_data_path: Path to the positions CSV file
-            history_data_path: Path to the transaction history CSV file
-            fix_exceed_range: Whether to attempt fixing quantity mismatches
-            default_dummy_date: Date to use for dummy transactions if needed
             **kwargs: Additional keyword arguments for specific converters
         """
 
