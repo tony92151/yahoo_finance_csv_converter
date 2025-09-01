@@ -1,9 +1,42 @@
 [project]
 name = "yahoo-finance-csv-converter"
 version = "0.1.0"
-description = "Add your description here"
+description = "Convert broker CSV data to Yahoo Finance format"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "gradio==5.23.2",
+    "gradio>=5.23.2",
+    "pandas>=2.0.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "mypy>=1.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+
+[project.scripts]
+yahoo-finance-converter = "src.cli.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

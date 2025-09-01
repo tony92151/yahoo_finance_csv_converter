@@ -1,12 +1,17 @@
-import logging
+"""
+Schwab broker data converter implementation.
+"""
+
 import argparse
+import logging
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
-from .base_convertor import BaseSourceConvertor
+from .base import BaseConverter
 from .utils import yf_columns
 
-# 202501 record columns
+# 2025-01 record columns definition for Schwab CSV format
 schwab_columns = [
     "Date",
     "Action",
@@ -18,7 +23,7 @@ schwab_columns = [
     "Amount",
 ]
 
-
+# Mapping from Schwab columns to Yahoo Finance columns
 column_mapping = {
     "Date": "Trade Date",
     "Quantity": "Quantity",
@@ -28,10 +33,18 @@ column_mapping = {
 
 
 def find_position_header_index(
-    file_path, header_keywords=["Symbol", "Description", "Qty (Quantity)"]
-):
+    file_path: str,
+    header_keywords: List[str] = ["Symbol", "Description", "Qty (Quantity)"],
+) -> Optional[int]:
     """
-    Finds the row index where the header starts.
+    Find the row index where the header starts in Schwab positions file.
+
+    Args:
+        file_path: Path to the positions CSV file
+        header_keywords: Keywords to identify the header row
+
+    Returns:
+        The index of the header row, or None if not found
     """
     with open(file_path, "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
@@ -40,22 +53,44 @@ def find_position_header_index(
     return None  # Return None if not found
 
 
-class SchwabConvertor(BaseSourceConvertor):
-    loader_name = "schwab"
+class SchwabConverter(BaseConverter):
+    """
+    Converter for Schwab broker CSV data to Yahoo Finance format.
+
+    This converter handles Schwab's specific CSV format and transforms it
+    into the format required by Yahoo Finance for portfolio import.
+    """
+
+    converter_name = "schwab"
 
     @staticmethod
-    def add_argument(parser: argparse.ArgumentParser):
-        """Add Schwab specific arguments to CLI parser."""
-        BaseSourceConvertor.add_argument(parser)
+    def add_arguments(parser: argparse.ArgumentParser) -> None:
+        """
+        Add Schwab specific arguments to CLI parser.
+
+        Args:
+            parser: The argument parser to add arguments to
+        """
+        BaseConverter.add_arguments(parser)
 
     def __init__(
         self,
         positions_data_path: str,
         history_data_path: str,
         fix_exceed_range: bool,
-        default_dummy_date: str | None = None,
+        default_dummy_date: Optional[str] = None,
         **kwargs,
     ):
+        """
+        Initialize the Schwab converter.
+
+        Args:
+            positions_data_path: Path to the positions CSV file
+            history_data_path: Path to the transaction history CSV file
+            fix_exceed_range: Whether to attempt fixing quantity mismatches
+            default_dummy_date: Date to use for dummy transactions if needed
+            **kwargs: Additional keyword arguments
+        """
         super().__init__(
             positions_data_path=positions_data_path,
             history_data_path=history_data_path,
@@ -66,17 +101,32 @@ class SchwabConvertor(BaseSourceConvertor):
 
         self.pre_check()
 
-    def pre_check(self):
+    def pre_check(self) -> None:
+        """
+        Check if the input data has the expected format.
+
+        Raises:
+            ValueError: If the history data doesn't match expected Schwab format
+        """
         if not all(col in self.history_data_df.columns for col in schwab_columns):
             raise ValueError(
                 f"Columns in {self.history_data_path} do not match Schwab columns. Please update the schema."
             )
 
-    def clean_column(self, df, column_name):
-        """Helper function to clean columns that contain dollar signs or non-numeric values."""
+    def clean_column(self, df: pd.DataFrame, column_name: str) -> None:
+        """
+        Clean columns that contain dollar signs or non-numeric values.
+
+        Args:
+            df: DataFrame to modify
+            column_name: Column name to clean
+        """
         df[column_name] = df[column_name].replace(r"[$,]", "", regex=True).astype(float)
 
-    def pre_process_history_data(self):
+    def pre_process_history_data(self) -> None:
+        """
+        Preprocess the history data to prepare for conversion.
+        """
         df = self.history_data_df
         df = df.dropna(subset=["Quantity", "Price"])
         if "Comment" not in df.columns:
@@ -86,7 +136,13 @@ class SchwabConvertor(BaseSourceConvertor):
         df["Quantity"] = df["Quantity"].astype(float)
         self.history_data_df = df
 
-    def pre_process_positions_data(self):
+    def pre_process_positions_data(self) -> None:
+        """
+        Preprocess the positions data to prepare for conversion.
+
+        Raises:
+            ValueError: If the header row can't be found in the positions file
+        """
         header_index = find_position_header_index(self.positions_data_path)
         if header_index is None:
             raise ValueError(f"Could not find header row in {self.positions_data_path}")
@@ -100,8 +156,25 @@ class SchwabConvertor(BaseSourceConvertor):
         self.positions_data_df = df
 
     def _complete_history_data(
-        self, symbol, filtered_position_data_df, filtered_history_data_df
-    ):
+        self,
+        symbol: str,
+        filtered_position_data_df: pd.DataFrame,
+        filtered_history_data_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Complete history data for a given symbol by fixing quantity mismatches.
+
+        Args:
+            symbol: Stock symbol to process
+            filtered_position_data_df: Position data for the symbol
+            filtered_history_data_df: History data for the symbol
+
+        Returns:
+            Completed history data for the symbol
+
+        Raises:
+            NotImplementedError: If fix_exceed_range is False and data is incomplete
+        """
         target_quantity = float(filtered_position_data_df["Qty (Quantity)"].values[0])
         target_total_value = float(filtered_position_data_df["Cost Basis"].values[0])
 
@@ -149,11 +222,22 @@ class SchwabConvertor(BaseSourceConvertor):
                 df = df.drop(columns=["Value"])
             df["Quantity"] = abs(df["Quantity"])
         else:
-            raise NotImplementedError("Not implemented yet")
+            raise NotImplementedError(
+                "Quantity mismatch fixing is not implemented for fix_exceed_range=False"
+            )
 
         return df
 
-    def _parse_history_and_check(self, target_symbol):
+    def _parse_history_and_check(self, target_symbol: str) -> pd.DataFrame:
+        """
+        Parse history data for a given symbol and check against position data.
+
+        Args:
+            target_symbol: Stock symbol to process
+
+        Returns:
+            Processed history data for the symbol
+        """
         history_data_df = self.history_data_df
         positions_data_df = self.positions_data_df
         filtered_history_data_df = history_data_df[
@@ -168,6 +252,12 @@ class SchwabConvertor(BaseSourceConvertor):
         )
 
     def convert(self) -> pd.DataFrame:
+        """
+        Convert Schwab data to Yahoo Finance format.
+
+        Returns:
+            DataFrame in Yahoo Finance format
+        """
         self.pre_process_history_data()
         self.pre_process_positions_data()
 
@@ -178,13 +268,17 @@ class SchwabConvertor(BaseSourceConvertor):
         total_complete_df = pd.concat(complete_dfs, ignore_index=True)
         total_complete_df = total_complete_df.rename(columns=column_mapping)
 
+        # Mark sell transactions with negative quantity
         total_complete_df.loc[total_complete_df["Action"] == "Sell", "Quantity"] = -abs(
             total_complete_df["Quantity"]
         )
+
+        # Add comments for certain transaction types
         total_complete_df["Comment"] = total_complete_df["Action"].map(
             {"Sell": "correct to sell", "Reinvest Shares": "Reinvest Shares"}
         )
 
+        # Select only the required columns and format the date
         total_complete_df = total_complete_df[yf_columns]
         total_complete_df["Trade Date"] = pd.to_datetime(
             total_complete_df["Trade Date"]
