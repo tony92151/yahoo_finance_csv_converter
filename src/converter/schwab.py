@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
 from .base import BaseConverter
+from .config import DEFAULT_DUMMY_DATE
 from .utils import yf_columns
 
 # 2025-01 record columns definition for Schwab CSV format
@@ -65,13 +66,31 @@ class SchwabConverter(BaseConverter):
 
     @staticmethod
     def add_arguments(parser: argparse.ArgumentParser) -> None:
-        """
-        Add Schwab specific arguments to CLI parser.
-
-        Args:
-            parser: The argument parser to add arguments to
-        """
-        BaseConverter.add_arguments(parser)
+        parser.add_argument(
+            "--positions-data",
+            dest="positions_data_path",
+            type=str,
+            required=True,
+            help="Path to positions CSV file",
+        )
+        parser.add_argument(
+            "--history-data",
+            dest="history_data_path",
+            type=str,
+            required=True,
+            help="Path to history CSV file",
+        )
+        parser.add_argument(
+            "--fix-exceed-range",
+            action="store_true",
+            help="Try to fix quantity mismatch when history range is incomplete",
+        )
+        parser.add_argument(
+            "--default-dummy-date",
+            type=str,
+            default=DEFAULT_DUMMY_DATE,
+            help="Date used when filling dummy transactions",
+        )
 
     def __init__(
         self,
@@ -91,13 +110,16 @@ class SchwabConverter(BaseConverter):
             default_dummy_date: Date to use for dummy transactions if needed
             **kwargs: Additional keyword arguments
         """
-        super().__init__(
-            positions_data_path=positions_data_path,
-            history_data_path=history_data_path,
-            fix_exceed_range=fix_exceed_range,
-            default_dummy_date=default_dummy_date,
-            **kwargs,
-        )
+
+        self.positions_data_path = positions_data_path
+        self.history_data_path = history_data_path
+        self.fix_exceed_range = fix_exceed_range
+        self.default_dummy_date = default_dummy_date or DEFAULT_DUMMY_DATE
+
+        self.positions_data_df: pd.DataFrame = pd.read_csv(positions_data_path)
+        self.history_data_df: pd.DataFrame = pd.read_csv(history_data_path)
+
+        super().__init__(**kwargs)
 
         self.pre_check()
 

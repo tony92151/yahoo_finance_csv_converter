@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 import gradio as gr
 
-from src.web.converters import schwab_converter
+from src.web.converters import cathay_sub_brokerage_converter, schwab_converter
 
 # Configure logging
 logging.basicConfig(
@@ -16,8 +16,8 @@ logging.basicConfig(
 
 # Create tabbed interface with available converters
 app = gr.TabbedInterface(
-    [schwab_converter],
-    ["Schwab Converter"],
+    [schwab_converter, cathay_sub_brokerage_converter],
+    ["Schwab Converter", "Cathay sub-brokerage Converter"],
     title="Yahoo Finance CSV Converter",
     theme=gr.themes.Soft(
         primary_hue="blue",
