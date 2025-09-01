@@ -20,7 +20,7 @@ app = gr.TabbedInterface(
     ["Schwab Converter", "Cathay sub-brokerage Converter"],
     title="Yahoo Finance CSV Converter",
     theme=gr.themes.Soft(
-        primary_hue="blue",
+        primary_hue="orange",
         secondary_hue="gray",
     ),
 )
