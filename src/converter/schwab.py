@@ -84,6 +84,11 @@ class SchwabConverter(BaseConverter):
             help="Try to fix quantity mismatch when history range is incomplete",
         )
         parser.add_argument(
+            "--include-closed-positions",
+            action="store_true",
+            help="Include symbols that appear in history but not in current positions",
+        )
+        parser.add_argument(
             "--default-dummy-date",
             type=str,
             default=DEFAULT_DUMMY_DATE,
@@ -95,6 +100,7 @@ class SchwabConverter(BaseConverter):
         positions_data_path: str,
         history_data_path: str,
         fix_exceed_range: bool,
+        include_closed_positions: bool = False,
         default_dummy_date: Optional[str] = None,
         **kwargs,
     ):
@@ -105,6 +111,7 @@ class SchwabConverter(BaseConverter):
             positions_data_path: Path to the positions CSV file
             history_data_path: Path to the transaction history CSV file
             fix_exceed_range: Whether to attempt fixing quantity mismatches
+            include_closed_positions: Whether to include history-only closed positions
             default_dummy_date: Date to use for dummy transactions if needed
             **kwargs: Additional keyword arguments
         """
@@ -112,6 +119,7 @@ class SchwabConverter(BaseConverter):
         self.positions_data_path = positions_data_path
         self.history_data_path = history_data_path
         self.fix_exceed_range = fix_exceed_range
+        self.include_closed_positions = include_closed_positions
         self.default_dummy_date = default_dummy_date or DEFAULT_DUMMY_DATE
 
         self.positions_data_df: pd.DataFrame = pd.read_csv(positions_data_path)
@@ -173,6 +181,34 @@ class SchwabConverter(BaseConverter):
         self.clean_column(df, "Price")
         self.clean_column(df, "Cost Basis")
         self.positions_data_df = df
+
+    def _symbols_to_process(self) -> List[str]:
+        """
+        Build the symbol list for conversion.
+
+        Current positions are always processed first. When requested, symbols
+        that only appear in transaction history are appended in file order.
+        """
+        position_symbols = self.positions_data_df["Symbol"].to_list()
+        if not self.include_closed_positions:
+            return position_symbols
+
+        seen_symbols = set(position_symbols)
+        history_symbols: List[str] = []
+        valid_history_symbols = (
+            self.history_data_df["Symbol"]
+            .dropna()
+            .astype(str)
+            .str.strip()
+        )
+
+        for symbol in valid_history_symbols:
+            if not symbol or symbol in seen_symbols:
+                continue
+            seen_symbols.add(symbol)
+            history_symbols.append(symbol)
+
+        return position_symbols + history_symbols
 
     def _complete_history_data(
         self,
@@ -247,6 +283,51 @@ class SchwabConverter(BaseConverter):
 
         return df
 
+    def _complete_closed_position_history_data(
+        self,
+        symbol: str,
+        filtered_history_data_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Complete history-only data for a symbol that is no longer held.
+
+        History-only symbols have no current position row to reconcile against,
+        so the target quantity is zero. If the visible transaction history does
+        not net to zero, add one dummy transaction for the missing side.
+        """
+        df = filtered_history_data_df.copy()
+        df.loc[df["Action"] == "Sell", "Quantity"] = -abs(df["Quantity"])
+
+        quantity_delta = df["Quantity"].sum()
+        if abs(quantity_delta) < 1e-9:
+            logging.info(f"Symbol: {symbol} is closed with balanced history.")
+            return df
+
+        logging.info(f"Symbol: {symbol} is closed with incomplete history. Fixing...")
+
+        if not self.fix_exceed_range:
+            raise NotImplementedError(
+                "Closed position quantity mismatch fixing is not implemented "
+                "for fix_exceed_range=False"
+            )
+
+        value_delta = (df["Quantity"] * df["Price"]).sum()
+        add_quantity = abs(quantity_delta)
+        add_action = "Sell" if quantity_delta > 0 else "Buy"
+        add_price = abs(value_delta) / add_quantity
+        new_row = {
+            "Date": self.default_dummy_date,
+            "Action": add_action,
+            "Symbol": symbol,
+            "Quantity": add_quantity,
+            "Price": add_price,
+        }
+        new_row_df = pd.DataFrame.from_dict(new_row, orient="index").T
+        df = pd.concat([df, new_row_df], ignore_index=True)
+        df["Quantity"] = abs(df["Quantity"])
+
+        return df
+
     def _parse_history_and_check(self, target_symbol: str) -> pd.DataFrame:
         """
         Parse history data for a given symbol and check against position data.
@@ -266,6 +347,16 @@ class SchwabConverter(BaseConverter):
             positions_data_df["Symbol"] == target_symbol
         ]
 
+        if filtered_positions_data_df.empty:
+            logging.info(
+                f"Symbol: {target_symbol} is not in current positions. "
+                "Reconciling visible history to zero quantity."
+            )
+            return self._complete_closed_position_history_data(
+                target_symbol,
+                filtered_history_data_df,
+            )
+
         return self._complete_history_data(
             target_symbol, filtered_positions_data_df, filtered_history_data_df
         )
@@ -280,7 +371,7 @@ class SchwabConverter(BaseConverter):
         self.pre_process_history_data()
         self.pre_process_positions_data()
 
-        symbol_to_process = self.positions_data_df["Symbol"].to_list()
+        symbol_to_process = self._symbols_to_process()
         complete_dfs = [
             self._parse_history_and_check(symbol) for symbol in symbol_to_process
         ]

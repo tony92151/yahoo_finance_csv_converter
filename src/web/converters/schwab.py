@@ -14,13 +14,16 @@ import gradio as gr
 from src.converter.schwab import SchwabConverter
 
 
-def process_file(file_history: Any, file_position: Any) -> Tuple[str, str]:
+def process_file(
+    file_history: Any, file_position: Any, include_closed_positions: bool = False
+) -> Tuple[str, str]:
     """
     Process uploaded Schwab files and convert to Yahoo Finance format.
 
     Args:
         file_history: Uploaded history file
         file_position: Uploaded position file
+        include_closed_positions: Whether to include history-only closed positions
 
     Returns:
         Tuple containing the output file name and log messages
@@ -44,6 +47,7 @@ def process_file(file_history: Any, file_position: Any) -> Tuple[str, str]:
             history_data_path=file_history.name,
             positions_data_path=file_position.name,
             fix_exceed_range=True,
+            include_closed_positions=include_closed_positions,
         )
         converted_result = converter.convert()
 
@@ -80,6 +84,10 @@ schwab_converter = gr.Interface(
     inputs=[
         gr.File(label="Upload history file (CSV format)"),
         gr.File(label="Upload position file (CSV format)"),
+        gr.Checkbox(
+            label="Include closed positions from transaction history",
+            value=False,
+        ),
     ],
     outputs=[
         gr.File(label="Download Yahoo Finance Format CSV"),
@@ -91,8 +99,9 @@ schwab_converter = gr.Interface(
     ### Instructions
     1. Upload your Schwab history file (transactions)
     2. Upload your Schwab positions file (current holdings)
-    3. Click "Submit" to convert the files
-    4. Download the resulting Yahoo Finance compatible CSV
+    3. Optionally include symbols that were fully sold and no longer appear in positions
+    4. Click "Submit" to convert the files
+    5. Download the resulting Yahoo Finance compatible CSV
     """,
     flagging_mode="never",
 )
