@@ -169,3 +169,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Keep raw broker exports out of version control unless sanitized first.
+example_data/firstrade/*.ofx

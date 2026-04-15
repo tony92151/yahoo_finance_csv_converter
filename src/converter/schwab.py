@@ -4,7 +4,7 @@ Schwab broker data converter implementation.
 
 import argparse
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional
 
 import pandas as pd
 
@@ -12,16 +12,14 @@ from .base import BaseConverter
 from .config import DEFAULT_DUMMY_DATE
 from .utils import yf_columns
 
-# 2025-01 record columns definition for Schwab CSV format
+# Schwab transaction columns required by the conversion logic.
 schwab_columns = [
     "Date",
     "Action",
     "Symbol",
-    "Description",
     "Quantity",
     "Price",
     "Fees & Comm",
-    "Amount",
 ]
 
 # Mapping from Schwab columns to Yahoo Finance columns
@@ -149,8 +147,7 @@ class SchwabConverter(BaseConverter):
         """
         Preprocess the history data to prepare for conversion.
         """
-        df = self.history_data_df
-        df = df.dropna(subset=["Quantity", "Price"])
+        df = self.history_data_df.dropna(subset=["Quantity", "Price"]).copy()
         if "Comment" not in df.columns:
             df["Comment"] = ""
         self.clean_column(df, "Price")
@@ -170,9 +167,9 @@ class SchwabConverter(BaseConverter):
             raise ValueError(f"Could not find header row in {self.positions_data_path}")
 
         df = pd.read_csv(self.positions_data_path, skiprows=header_index)
-        df = df.dropna(how="all")
+        df = df.dropna(how="all").copy()
 
-        df = df[df["Symbol"].str.isupper()]
+        df = df[df["Symbol"].astype(str).str.isupper()].copy()
         self.clean_column(df, "Price")
         self.clean_column(df, "Cost Basis")
         self.positions_data_df = df
@@ -301,7 +298,7 @@ class SchwabConverter(BaseConverter):
         )
 
         # Select only the required columns and format the date
-        total_complete_df = total_complete_df[yf_columns]
+        total_complete_df = total_complete_df[yf_columns].copy()
         total_complete_df["Trade Date"] = pd.to_datetime(
             total_complete_df["Trade Date"]
         ).dt.strftime("%Y%m%d")
