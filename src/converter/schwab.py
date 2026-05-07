@@ -381,8 +381,8 @@ class SchwabConverter(BaseConverter):
             total_complete_df.loc[sell_mask, "Quantity"]
         )
         total_complete_df["Purchase Price"] = abs(total_complete_df["Purchase Price"])
-        total_complete_df["Transaction Type"] = "BUY"
-        total_complete_df.loc[sell_mask, "Transaction Type"] = "SELL"
+        total_complete_df["Action"] = "BUY"
+        total_complete_df.loc[sell_mask, "Action"] = "SELL"
 
         # Add comments for certain transaction types
         total_complete_df["Comment"] = total_complete_df["Action"].map(

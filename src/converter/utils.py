@@ -8,7 +8,7 @@ import pandas as pd
 yf_columns = [
     "Symbol",
     "Trade Date",
-    "Transaction Type",
+    "Action",
     "Quantity",
     "Purchase Price",
     "Commission",
@@ -34,7 +34,7 @@ def check_final_df(df: pd.DataFrame) -> bool:
     essential_cols = [
         "Symbol",
         "Trade Date",
-        "Transaction Type",
+        "Action",
         "Quantity",
         "Purchase Price",
     ]

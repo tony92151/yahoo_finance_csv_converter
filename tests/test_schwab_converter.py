@@ -43,7 +43,7 @@ EXPECTED_CLOSED_SYMBOLS = [
 EXPECTED_YF_COLUMNS = [
     "Symbol",
     "Trade Date",
-    "Transaction Type",
+    "Action",
     "Quantity",
     "Purchase Price",
     "Commission",
@@ -65,7 +65,7 @@ def _load_expected_position_quantities() -> pd.Series:
 
 def _signed_quantities_from_transaction_type(df: pd.DataFrame) -> pd.Series:
     signed_quantities = df["Quantity"].where(
-        df["Transaction Type"] == "BUY",
+        df["Action"] == "BUY",
         -df["Quantity"],
     )
     return signed_quantities.groupby(df["Symbol"]).sum().sort_index()
@@ -95,12 +95,12 @@ def test_schwab_fixture_converts_without_settingwithcopy_warning() -> None:
     required_columns = [
         "Symbol",
         "Trade Date",
-        "Transaction Type",
+        "Action",
         "Quantity",
         "Purchase Price",
     ]
     assert not result[required_columns].isna().any().any()
-    assert set(result["Transaction Type"]) == {"BUY", "SELL"}
+    assert set(result["Action"]) == {"BUY", "SELL"}
 
 
 def test_schwab_fixture_exports_sell_rows_with_positive_quantity_positive_price_and_sell_type() -> (
@@ -117,7 +117,7 @@ def test_schwab_fixture_exports_sell_rows_with_positive_quantity_positive_price_
     sell_rows = result[result["Comment"] == "correct to sell"]
 
     assert not sell_rows.empty
-    assert (sell_rows["Transaction Type"] == "SELL").all()
+    assert (sell_rows["Action"] == "SELL").all()
     assert (sell_rows["Quantity"] > 0).all()
     assert (sell_rows["Purchase Price"] > 0).all()
 
@@ -272,8 +272,8 @@ def test_cathay_converter_exports_sell_rows_with_positive_quantity_positive_pric
     sell_rows = result[result["Comment"] == "correct to sell"]
 
     assert not sell_rows.empty
-    assert (sell_rows["Transaction Type"] == "SELL").all()
+    assert (sell_rows["Action"] == "SELL").all()
     assert (sell_rows["Quantity"] > 0).all()
     assert (sell_rows["Purchase Price"] > 0).all()
-    assert set(result["Transaction Type"]) == {"BUY", "SELL"}
+    assert set(result["Action"]) == {"BUY", "SELL"}
     assert list(result.columns) == EXPECTED_YF_COLUMNS

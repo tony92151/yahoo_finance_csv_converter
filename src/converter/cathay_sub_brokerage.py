@@ -95,7 +95,7 @@ class CathaySubBrokerageConverter(BaseConverter):
                 comment_list.append("")
 
         self.df["Quantity"] = quantity_list
-        self.df["Transaction Type"] = transaction_type_list
+        self.df["Action"] = transaction_type_list
         self.df["Comment"] = comment_list
 
         # reformat daate from yyyy/mm/dd to yyyymmdd
