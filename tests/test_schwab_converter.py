@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 from pandas.errors import SettingWithCopyWarning
 
+from src.converter.cathay_sub_brokerage import CathaySubBrokerageConverter
 from src.converter.config import DEFAULT_DUMMY_DATE
 from src.converter.schwab import SchwabConverter, find_position_header_index
 from src.converter.utils import yf_columns
@@ -52,6 +53,14 @@ def _load_expected_position_quantities() -> pd.Series:
     return quantities.sort_index()
 
 
+def _signed_quantities_from_price_sign(df: pd.DataFrame) -> pd.Series:
+    signed_quantities = df["Quantity"].where(
+        df["Purchase Price"] >= 0,
+        -df["Quantity"],
+    )
+    return signed_quantities.groupby(df["Symbol"]).sum().sort_index()
+
+
 def test_schwab_fixture_converts_without_settingwithcopy_warning() -> None:
     converter = SchwabConverter(
         positions_data_path=str(POSITIONS_PATH),
@@ -76,6 +85,24 @@ def test_schwab_fixture_converts_without_settingwithcopy_warning() -> None:
     assert not result[required_columns].isna().any().any()
 
 
+def test_schwab_fixture_exports_sell_rows_with_positive_quantity_and_negative_price() -> (
+    None
+):
+    converter = SchwabConverter(
+        positions_data_path=str(POSITIONS_PATH),
+        history_data_path=str(HISTORY_PATH),
+        fix_exceed_range=True,
+        include_closed_positions=True,
+    )
+
+    result = converter.convert()
+    sell_rows = result[result["Comment"] == "correct to sell"]
+
+    assert not sell_rows.empty
+    assert (sell_rows["Quantity"] > 0).all()
+    assert (sell_rows["Purchase Price"] < 0).all()
+
+
 def test_schwab_fixture_reconciles_quantities_to_positions() -> None:
     converter = SchwabConverter(
         positions_data_path=str(POSITIONS_PATH),
@@ -85,7 +112,7 @@ def test_schwab_fixture_reconciles_quantities_to_positions() -> None:
 
     result = converter.convert()
     expected_quantities = _load_expected_position_quantities()
-    actual_quantities = result.groupby("Symbol")["Quantity"].sum().sort_index()
+    actual_quantities = _signed_quantities_from_price_sign(result)
 
     assert expected_quantities.index.tolist() == EXPECTED_SYMBOLS
     pd.testing.assert_index_equal(
@@ -147,9 +174,7 @@ def test_schwab_fixture_reconciles_closed_positions_to_zero(monkeypatch) -> None
     result = converter.convert()
     closed_position_rows = result[result["Symbol"].isin(EXPECTED_CLOSED_SYMBOLS)]
     dummy_trade_date = pd.to_datetime(DEFAULT_DUMMY_DATE).strftime("%Y%m%d")
-    closed_quantities = (
-        closed_position_rows.groupby("Symbol")["Quantity"].sum().sort_index()
-    )
+    closed_quantities = _signed_quantities_from_price_sign(closed_position_rows)
 
     assert sorted(completed_symbols) == EXPECTED_SYMBOLS
     assert dummy_trade_date in closed_position_rows["Trade Date"].to_list()
@@ -157,7 +182,9 @@ def test_schwab_fixture_reconciles_closed_positions_to_zero(monkeypatch) -> None
         assert closed_quantities[symbol] == pytest.approx(0)
 
 
-def test_schwab_fixture_reconciles_open_positions_when_closed_positions_included() -> None:
+def test_schwab_fixture_reconciles_open_positions_when_closed_positions_included() -> (
+    None
+):
     converter = SchwabConverter(
         positions_data_path=str(POSITIONS_PATH),
         history_data_path=str(HISTORY_PATH),
@@ -168,9 +195,7 @@ def test_schwab_fixture_reconciles_open_positions_when_closed_positions_included
     result = converter.convert()
     expected_quantities = _load_expected_position_quantities()
     open_position_rows = result[result["Symbol"].isin(EXPECTED_SYMBOLS)]
-    actual_quantities = (
-        open_position_rows.groupby("Symbol")["Quantity"].sum().sort_index()
-    )
+    actual_quantities = _signed_quantities_from_price_sign(open_position_rows)
 
     pd.testing.assert_index_equal(
         actual_quantities.index,
@@ -179,3 +204,55 @@ def test_schwab_fixture_reconciles_open_positions_when_closed_positions_included
 
     for symbol, expected_quantity in expected_quantities.items():
         assert actual_quantities[symbol] == pytest.approx(expected_quantity)
+
+
+def test_cathay_converter_exports_sell_rows_with_positive_quantity_and_negative_price(
+    tmp_path: Path,
+) -> None:
+    statement_path = tmp_path / "cathay_statement.csv"
+    pd.DataFrame(
+        [
+            {
+                "交易日期": "2026/05/01",
+                "商品代碼": "AAPL",
+                "商品名稱": "Apple Inc.",
+                "交易市場": "US",
+                "交易種類": "買進",
+                "交易幣別": "USD",
+                "交割幣別": "USD",
+                "股數": 2,
+                "價格": 100,
+                "匯率": 1,
+                "成交金額": 200,
+                "手續費": 1,
+                "其他費用": 0.5,
+                "應收/付(-)金額": -201.5,
+            },
+            {
+                "交易日期": "2026/05/02",
+                "商品代碼": "AAPL",
+                "商品名稱": "Apple Inc.",
+                "交易市場": "US",
+                "交易種類": "賣出",
+                "交易幣別": "USD",
+                "交割幣別": "USD",
+                "股數": 1,
+                "價格": 110,
+                "匯率": 1,
+                "成交金額": 110,
+                "手續費": 1,
+                "其他費用": 0.5,
+                "應收/付(-)金額": 108.5,
+            },
+        ]
+    ).to_csv(statement_path, index=False)
+
+    result = CathaySubBrokerageConverter(
+        statement_of_account_file_path=str(statement_path)
+    ).convert()
+    sell_rows = result[result["Comment"] == "correct to sell"]
+
+    assert not sell_rows.empty
+    assert (sell_rows["Quantity"] > 0).all()
+    assert (sell_rows["Purchase Price"] < 0).all()
+    assert list(result.columns) == yf_columns

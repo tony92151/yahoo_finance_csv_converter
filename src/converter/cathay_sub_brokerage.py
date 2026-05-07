@@ -79,16 +79,16 @@ class CathaySubBrokerageConverter(BaseConverter):
         # remove rows where "交易種類" is not "買進" or "賣出"
         self.df = self.df[self.df["交易種類"].isin(["買進", "賣出"])]
 
-        # if column "交易種類" is "賣出" then "股數" should be negative
+        # if column "交易種類" is "賣出" then "價格" should be negative
         comment_list = []
         quantity_list = []
 
         for _, row in self.df.iterrows():
             if row["交易種類"] == "賣出":
-                quantity_list.append(float(row["股數"]) * -1)
+                quantity_list.append(abs(float(row["股數"])))
                 comment_list.append("correct to sell")
             else:
-                quantity_list.append(row["股數"])
+                quantity_list.append(abs(float(row["股數"])))
                 comment_list.append("")
 
         self.df["Quantity"] = quantity_list
@@ -108,16 +108,12 @@ class CathaySubBrokerageConverter(BaseConverter):
             }
         )
 
-        self.df = self.df[
-            [
-                "Trade Date",
-                "Symbol",
-                "Quantity",
-                "Purchase Price",
-                "Commission",
-                "Comment",
-            ]
-        ]
+        sell_mask = self.df["交易種類"] == "賣出"
+        self.df.loc[sell_mask, "Purchase Price"] = -abs(
+            self.df.loc[sell_mask, "Purchase Price"]
+        )
+
+        self.df = self.df[yf_columns]
         logging.info(f"Convert {self.statement_of_account_file_path} done.")
 
         return self.df

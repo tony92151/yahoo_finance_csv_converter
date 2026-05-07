@@ -196,10 +196,7 @@ class SchwabConverter(BaseConverter):
         seen_symbols = set(position_symbols)
         history_symbols: List[str] = []
         valid_history_symbols = (
-            self.history_data_df["Symbol"]
-            .dropna()
-            .astype(str)
-            .str.strip()
+            self.history_data_df["Symbol"].dropna().astype(str).str.strip()
         )
 
         for symbol in valid_history_symbols:
@@ -378,9 +375,13 @@ class SchwabConverter(BaseConverter):
         total_complete_df = pd.concat(complete_dfs, ignore_index=True)
         total_complete_df = total_complete_df.rename(columns=column_mapping)
 
-        # Mark sell transactions with negative quantity
-        total_complete_df.loc[total_complete_df["Action"] == "Sell", "Quantity"] = -abs(
-            total_complete_df["Quantity"]
+        # Mark sell transactions with positive quantity and negative purchase price.
+        sell_mask = total_complete_df["Action"] == "Sell"
+        total_complete_df.loc[sell_mask, "Quantity"] = abs(
+            total_complete_df.loc[sell_mask, "Quantity"]
+        )
+        total_complete_df.loc[sell_mask, "Purchase Price"] = -abs(
+            total_complete_df.loc[sell_mask, "Purchase Price"]
         )
 
         # Add comments for certain transaction types
