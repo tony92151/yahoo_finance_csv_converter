@@ -16,8 +16,8 @@ App on [HuggingFace space](https://huggingface.co/spaces/tony92151/yahoo_finance
 
 Convert broker CSV data to Yahoo Finance compatible format for portfolio import.
 
-Sell transactions are exported with a positive `Quantity` and a negative
-`Purchase Price`.
+Transactions are exported with a positive `Quantity` and `Purchase Price`.
+Direction is shown in the `Transaction Type` column as `BUY` or `SELL`.
 
 ## Command Line Usage
 

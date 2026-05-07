@@ -40,6 +40,16 @@ EXPECTED_CLOSED_SYMBOLS = [
     "URA",
 ]
 
+EXPECTED_YF_COLUMNS = [
+    "Symbol",
+    "Trade Date",
+    "Transaction Type",
+    "Quantity",
+    "Purchase Price",
+    "Commission",
+    "Comment",
+]
+
 
 def _load_expected_position_quantities() -> pd.Series:
     header_index = find_position_header_index(str(POSITIONS_PATH))
@@ -53,9 +63,9 @@ def _load_expected_position_quantities() -> pd.Series:
     return quantities.sort_index()
 
 
-def _signed_quantities_from_price_sign(df: pd.DataFrame) -> pd.Series:
+def _signed_quantities_from_transaction_type(df: pd.DataFrame) -> pd.Series:
     signed_quantities = df["Quantity"].where(
-        df["Purchase Price"] >= 0,
+        df["Transaction Type"] == "BUY",
         -df["Quantity"],
     )
     return signed_quantities.groupby(df["Symbol"]).sum().sort_index()
@@ -79,13 +89,21 @@ def test_schwab_fixture_converts_without_settingwithcopy_warning() -> None:
     ]
     assert settingwithcopy_warnings == []
 
-    assert list(result.columns) == yf_columns
+    assert yf_columns == EXPECTED_YF_COLUMNS
+    assert list(result.columns) == EXPECTED_YF_COLUMNS
     assert len(result) == 31
-    required_columns = ["Symbol", "Trade Date", "Quantity", "Purchase Price"]
+    required_columns = [
+        "Symbol",
+        "Trade Date",
+        "Transaction Type",
+        "Quantity",
+        "Purchase Price",
+    ]
     assert not result[required_columns].isna().any().any()
+    assert set(result["Transaction Type"]) == {"BUY", "SELL"}
 
 
-def test_schwab_fixture_exports_sell_rows_with_positive_quantity_and_negative_price() -> (
+def test_schwab_fixture_exports_sell_rows_with_positive_quantity_positive_price_and_sell_type() -> (
     None
 ):
     converter = SchwabConverter(
@@ -99,8 +117,9 @@ def test_schwab_fixture_exports_sell_rows_with_positive_quantity_and_negative_pr
     sell_rows = result[result["Comment"] == "correct to sell"]
 
     assert not sell_rows.empty
+    assert (sell_rows["Transaction Type"] == "SELL").all()
     assert (sell_rows["Quantity"] > 0).all()
-    assert (sell_rows["Purchase Price"] < 0).all()
+    assert (sell_rows["Purchase Price"] > 0).all()
 
 
 def test_schwab_fixture_reconciles_quantities_to_positions() -> None:
@@ -112,7 +131,7 @@ def test_schwab_fixture_reconciles_quantities_to_positions() -> None:
 
     result = converter.convert()
     expected_quantities = _load_expected_position_quantities()
-    actual_quantities = _signed_quantities_from_price_sign(result)
+    actual_quantities = _signed_quantities_from_transaction_type(result)
 
     assert expected_quantities.index.tolist() == EXPECTED_SYMBOLS
     pd.testing.assert_index_equal(
@@ -174,7 +193,7 @@ def test_schwab_fixture_reconciles_closed_positions_to_zero(monkeypatch) -> None
     result = converter.convert()
     closed_position_rows = result[result["Symbol"].isin(EXPECTED_CLOSED_SYMBOLS)]
     dummy_trade_date = pd.to_datetime(DEFAULT_DUMMY_DATE).strftime("%Y%m%d")
-    closed_quantities = _signed_quantities_from_price_sign(closed_position_rows)
+    closed_quantities = _signed_quantities_from_transaction_type(closed_position_rows)
 
     assert sorted(completed_symbols) == EXPECTED_SYMBOLS
     assert dummy_trade_date in closed_position_rows["Trade Date"].to_list()
@@ -195,7 +214,7 @@ def test_schwab_fixture_reconciles_open_positions_when_closed_positions_included
     result = converter.convert()
     expected_quantities = _load_expected_position_quantities()
     open_position_rows = result[result["Symbol"].isin(EXPECTED_SYMBOLS)]
-    actual_quantities = _signed_quantities_from_price_sign(open_position_rows)
+    actual_quantities = _signed_quantities_from_transaction_type(open_position_rows)
 
     pd.testing.assert_index_equal(
         actual_quantities.index,
@@ -206,7 +225,7 @@ def test_schwab_fixture_reconciles_open_positions_when_closed_positions_included
         assert actual_quantities[symbol] == pytest.approx(expected_quantity)
 
 
-def test_cathay_converter_exports_sell_rows_with_positive_quantity_and_negative_price(
+def test_cathay_converter_exports_sell_rows_with_positive_quantity_positive_price_and_sell_type(
     tmp_path: Path,
 ) -> None:
     statement_path = tmp_path / "cathay_statement.csv"
@@ -253,6 +272,8 @@ def test_cathay_converter_exports_sell_rows_with_positive_quantity_and_negative_
     sell_rows = result[result["Comment"] == "correct to sell"]
 
     assert not sell_rows.empty
+    assert (sell_rows["Transaction Type"] == "SELL").all()
     assert (sell_rows["Quantity"] > 0).all()
-    assert (sell_rows["Purchase Price"] < 0).all()
-    assert list(result.columns) == yf_columns
+    assert (sell_rows["Purchase Price"] > 0).all()
+    assert set(result["Transaction Type"]) == {"BUY", "SELL"}
+    assert list(result.columns) == EXPECTED_YF_COLUMNS

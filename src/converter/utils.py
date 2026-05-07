@@ -8,6 +8,7 @@ import pandas as pd
 yf_columns = [
     "Symbol",
     "Trade Date",
+    "Transaction Type",
     "Quantity",
     "Purchase Price",
     "Commission",
@@ -30,7 +31,13 @@ def check_final_df(df: pd.DataFrame) -> bool:
         return False
 
     # Check if there are no null values in essential columns
-    essential_cols = ["Symbol", "Trade Date", "Quantity", "Purchase Price"]
+    essential_cols = [
+        "Symbol",
+        "Trade Date",
+        "Transaction Type",
+        "Quantity",
+        "Purchase Price",
+    ]
     if df[essential_cols].isnull().any().any():
         return False
 

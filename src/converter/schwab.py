@@ -375,14 +375,14 @@ class SchwabConverter(BaseConverter):
         total_complete_df = pd.concat(complete_dfs, ignore_index=True)
         total_complete_df = total_complete_df.rename(columns=column_mapping)
 
-        # Mark sell transactions with positive quantity and negative purchase price.
+        # Mark transaction direction explicitly while keeping quantity and price positive.
         sell_mask = total_complete_df["Action"] == "Sell"
         total_complete_df.loc[sell_mask, "Quantity"] = abs(
             total_complete_df.loc[sell_mask, "Quantity"]
         )
-        total_complete_df.loc[sell_mask, "Purchase Price"] = -abs(
-            total_complete_df.loc[sell_mask, "Purchase Price"]
-        )
+        total_complete_df["Purchase Price"] = abs(total_complete_df["Purchase Price"])
+        total_complete_df["Transaction Type"] = "BUY"
+        total_complete_df.loc[sell_mask, "Transaction Type"] = "SELL"
 
         # Add comments for certain transaction types
         total_complete_df["Comment"] = total_complete_df["Action"].map(
